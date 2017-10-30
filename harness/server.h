@@ -45,37 +45,18 @@
 
 typedef struct {
     unsigned int Qlength;
-    double service_time;
+    unsigned long  service_time;
+    unsigned int isread;
 } state_info_t;
-
-// for Intel PCM
-#include <unistd.h>
-#include <signal.h>   // for atexit()
-#include <sys/time.h> // for gettimeofday()
-#include <math.h>
-#include <iomanip>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <cstring>
-#include <sstream>
-#include <assert.h>
-#include "../pcm-master/cpucounters.h"
-#include "../pcm-master/utils.h"
-
-PCM * pcm;
 
 class Server {
     protected:
         struct ReqInfo {
-            uint64_t id;
-            uint64_t startNs;
-	       uint64_t Qlength;
-	       uint64_t Reqlen;
-            uint64_t RecNs; // time when the request is received at the server
-            #ifdef PER_REQ_MONITOR
-            uint64_t arrvNs;
-            #endif
+        uint64_t id;
+        uint64_t startNs;
+	    uint64_t Qlength;
+	    uint64_t Reqlen;
+        uint64_t RecNs; // time when the request is received at the server
         };
 
         uint64_t finishedReqs;
@@ -110,19 +91,12 @@ class NetworkedServer : public Server {
     private:
         pthread_mutex_t sendLock;
         pthread_mutex_t recvLock;
-        #ifdef PER_REQ_MONITOR
-        pthread_mutex_t pcmLock;
-        #endif
+
         Request *reqbuf; // One for each server thread
 
         std::vector<int> clientFds;
         std::vector<int> activeFds; // Currently active client fds for 
                                     // each thread
-        //state1 stores counter state when start processing request, socket 2 store when finishing
-        #ifdef PER_REQ_MONITOR
-        std::vector<CoreCounterState> cstates;
-        std::vector<SocketCounterState> sktstates;
-        #endif
         size_t recvClientHead; // The idx of the client at the 'head' of the 
                                // receive queue. We start with this idx and go
                                // down the list of eligible fds to receive from.
@@ -149,8 +123,9 @@ class NetworkedServer : public Server {
 	    std::queue<int> fd_Queue;
 	    std::queue<int> Qlen_Queue;
         std::queue<uint64_t> rectime_Queue;
-        std::vector<uint64_t> latencies;
-        std::vector<uint64_t> services; 
+        std::vector<unsigned long> latencies;
+        std::vector<unsigned long> services;
+	std::vector<unsigned> QLs;
         bool checkRecv(int recvd, int expected, int fd);
     public:
 
@@ -165,8 +140,8 @@ class NetworkedServer : public Server {
         //for shared memory
 
         void init_mem();
-        void update_mem();
-        void update_server_info(unsigned int Qlength, float service_time);
+        void update_mem(unsigned long latency, unsigned long service);
+        void update_server_info(unsigned int Qlength, unsigned long  service_time);
 
 };
 
