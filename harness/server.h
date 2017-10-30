@@ -27,6 +27,9 @@
 
 #include <unordered_map>
 #include <vector>
+
+#ifdef CONTROL_WITH_QLEARNING //necessary files for q_learning
+
 #include <queue>
 #include <algorithm>
 
@@ -48,15 +51,42 @@ typedef struct {
     unsigned long  service_time;
     unsigned int isread;
 } state_info_t;
+#endif 
+
+
+
+#ifdef PER_REQ_MONITOR
+#include <unistd.h>
+#include <signal.h>   // for atexit()
+#include <sys/time.h> // for gettimeofday()
+#include <math.h>
+#include <iomanip>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <cstring>
+#include <sstream>
+#include <assert.h>
+#include "../pcm-master/cpucounters.h"
+#include "../pcm-master/utils.h"
+
+PCM * pcm;
+#endif
 
 class Server {
     protected:
         struct ReqInfo {
-        uint64_t id;
-        uint64_t startNs;
-	    uint64_t Qlength;
-	    uint64_t Reqlen;
-        uint64_t RecNs; // time when the request is received at the server
+            uint64_t id;
+            uint64_t startNs;
+            #ifdef CONTROL_WITH_QLEARNING //info for Q learning
+	       uint64_t Qlength;
+	        uint64_t Reqlen;
+            uint64_t RecNs; // time when the request is received at the server
+           #endif
+
+            #ifdef PER_REQ_MONITOR
+            uint64_t arrvNs;
+            #endif
         };
 
         uint64_t finishedReqs;
@@ -103,19 +133,36 @@ class NetworkedServer : public Server {
                                // This is incremented by 1 on each go. This
                                // avoids unfairly favoring some clients over
                                // others
-        int shm_fd, runLength;
+        void printDebugStats() const;
+
+        // Helper Functions
+        void removeClient(int fd);
+        bool checkRecv(int recvd, int expected, int fd);
+
+        #ifdef CONTROL_WITH_QLEARNING //variables and constants necessary for Q Learning
+        int server_info_fd;
         int sem_fd;
-        int state_fd;
+        int state_info_fd;
+        int runLength;
         sem_t *sem;
-        void *shm_base;
-        void *state_info_base;
-        int starttime;
+        void *server_info_mem_addr;
+        void *state_info_mem_addr;
+        int starttime; //the start time of each window
         state_info_t state_info;
 
-        const char *name = "server_info";
-        const char *state_name = "state_info";
+        const char *server_info_shm_file_name = "server_info";
+        const char *state_info_shm_file_name = "state_info";
         //const char *sem_name = "sem";
-        void printDebugStats() const;
+        
+        std::queue<Request*> recvReq_Queue; // data structure for holding unprocessed requests
+	    std::queue<int> fd_Queue; //keep record of fd to return for request
+	    std::queue<int> Qlen_Queue; //keep record of queue length when request is received
+        std::queue<uint64_t> rectime_Queue; // keep record of when the request is received
+        //variables for every window
+        std::vector<uint64_t> latencies; //latencies in current window
+        std::vector<uint64_t> services;  //service times in current window
+        #endif
+
 
         // Helper Functions
         void removeClient(int fd);
@@ -132,17 +179,19 @@ class NetworkedServer : public Server {
         NetworkedServer(int nthreads, std::string ip, int port, int nclients);
         ~NetworkedServer();
 
-        int recvReq_Q();
+        
         size_t recvReq(int id, void** data);
         void sendResp(int id, const void* data, size_t size);
         void finish();
-
+        
+        #ifdef CONTROL_WITH_QLEARNING //methods for Q Learning
+        int recvReq_Q();
         //for shared memory
 
         void init_mem();
         void update_mem(unsigned long latency, unsigned long service);
         void update_server_info(unsigned int Qlength, unsigned long  service_time);
-
+        #endif
 };
 
 #endif
