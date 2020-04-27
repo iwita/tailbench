@@ -45,7 +45,7 @@ component) and harness/tbench_client.h (for the client component).
 Application and client execution is controlled via environment variables. Some
 of these are common for all three configurations, while others are specific to
 some configurations. We describe the environment variables in each of these
-categories below. The quantities in parentheses indicate whehter the environment
+categories below. The quantities in parentheses indicate whether the environment
 variable is used for the application or the client, and if it is only used for
 some configurations (e.g. networked + loopback).  Additionally, some application
 clients use additional environment variables for configuration. These are
@@ -106,7 +106,7 @@ obtain the version used in the TailBench paper.
 MISC NOTES
 ==========
 
-We recommend running latency-sensitive applicationwith real time priority (using
+We recommend running latency-sensitive applications with real time priority (using
 chrt, for instance), to avoid interference from background daemons etc. It is
 also advisable to disable deep sleep states, and limit the system to shallow
 sleep states like C1/C1E.
